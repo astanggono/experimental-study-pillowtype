@@ -1,0 +1,358 @@
+---
+title: "Simulation"
+author: "Apoorvi Mittal, Asta Adhira Anggono, Ayushi Khasnobis, Joy Shyu, Junzhe Gong"
+date: "2022-12-03"
+output: html_document
+---
+
+# Calcuation of power
+
+```{r}
+library(pwr)
+pwr.t2n.test(n1 = 200, n2 = 200, d = 5/10, sig.level = 0.05, 
+             alternative = "greater")
+
+pwr.t2n.test(n1 = 200, n2 = 200, d = 8/10, sig.level = 0.05, 
+             alternative = "less")
+
+```
+
+# Simulate the data
+
+```{r}
+n <- 400
+library(data.table)
+library(DT)
+set.seed(seed = 329)
+
+bp.dat1 <- data.table(Age_Group = c(rep.int(x = "21-40", times = n/16)),
+                      Gender = c(rep.int(x = "Male", times = n/16)),
+                      Group = c(rep.int(x = "Treatment", times = n/16)))
+bp.dat1[Age_Group == "21-40", Score := round(x = rnorm(n = .N, mean = 65, sd = 10), digits = 1)]
+
+bp.dat1
+
+bp.dat2 <- data.table(Age_Group = c(rep.int(x = "21-40", times = n/16)),
+                      Gender = c(rep.int(x = "Male", times = n/16)),
+                      Group = c(rep.int(x = "Control", times = n/16)))
+bp.dat2[Age_Group == "21-40", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+bp.dat2
+
+
+bp.dat3 <- data.table(Age_Group = c(rep.int(x = "21-40", times = n/16)),
+                      Gender = c(rep.int(x = "Female", times = n/16)),
+                      Group = c(rep.int(x = "Treatment", times = n/16)))
+bp.dat3[Age_Group == "21-40", Score := round(x = rnorm(n = .N, mean = 65, sd = 10), digits = 1)]
+bp.dat3
+
+bp.dat4 <- data.table(Age_Group = c(rep.int(x = "21-40", times = n/16)),
+                      Gender = c(rep.int(x = "Female", times = n/16)),
+                      Group = c(rep.int(x = "Control", times = n/16)))
+bp.dat4[Age_Group == "21-40", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+bp.dat4
+
+bp.dat5 <- data.table(Age_Group = c(rep.int(x = "41-60", times = n/16)),
+                      Gender = c(rep.int(x = "Male", times = n/16)),
+                      Group = c(rep.int(x = "Treatment", times = n/16)))
+bp.dat5[Age_Group == "41-60", Score := round(x = rnorm(n = .N, mean = 65, sd = 10), digits = 1)]
+bp.dat5
+
+
+bp.dat6 <- data.table(Age_Group = c(rep.int(x = "41-60", times = n/16)),
+                      Gender = c(rep.int(x = "Male", times = n/16)),
+                      Group = c(rep.int(x = "Control", times = n/16)))
+bp.dat6[Age_Group == "41-60", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+bp.dat6
+
+bp.dat7 <- data.table(Age_Group = c(rep.int(x = "41-60", times = n/16)),
+                      Gender = c(rep.int(x = "Female", times = n/16)),
+                      Group = c(rep.int(x = "Treatment", times = n/16)))
+bp.dat7[Age_Group == "41-60", Score := round(x = rnorm(n = .N, mean = 65, sd = 10), digits = 1)]
+bp.dat7
+
+bp.dat8 <- data.table(Age_Group = c(rep.int(x = "41-60", times = n/16)),
+                      Gender = c(rep.int(x = "Female", times = n/16)),
+                      Group = c(rep.int(x = "Control", times = n/16)))
+bp.dat8[Age_Group == "41-60", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+bp.dat8
+```
+
+```{r}
+bp.dat <- rbind(bp.dat1,bp.dat2,bp.dat3,bp.dat4,bp.dat5,bp.dat6,bp.dat7,bp.dat8)
+datatable(data = bp.dat)
+```
+
+### 2 sample T-test for age group(effect)
+
+```{r}
+n <- 400
+library(data.table)
+library(DT)
+set.seed(seed = 329)
+```
+
+# Simulate the data
+
+```{r}
+bp.dat <- data.table(Group = c(rep.int(x = "Age21-40", times = n/2), rep.int(x = "Age41-60", times = n/2)))
+
+bp.dat[Group == "Age21-40", Score := round(x = rnorm(n = .N, mean = 52, sd = 10), digits = 1)]
+bp.dat[Group == "Age41-60", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+datatable(data = bp.dat)
+
+t.test(x = bp.dat[Group == "Age21-40", 
+                  Score], y = bp.dat[Group == "Age41-60", Score], mu = 0, alternative = "less")
+
+analyze.experiment <- function(the.dat) {
+  require(data.table)
+  setDT(the.dat)
+  
+  the.test <- t.test(x = the.dat[Group == "Age21-40", 
+                                 Score], y = the.dat[Group == "Age41-60", Score], alternative = "less")
+  
+  the.effect <- the.test$estimate[1] - the.test$estimate[2]
+  upper.bound <- the.test$conf.int[2]
+  lower.bound <- the.test$conf.int[1]
+  p <- the.test$p.value
+  
+  result <- data.table(effect = the.effect, upper_ci = upper.bound,lower_ci=lower.bound,
+                       p = p)
+  
+  return(result)
+}
+
+analyze.experiment(the.dat = bp.dat)
+```
+
+# Run the simulation 1000 experiments
+
+```{r}
+library(dplyr)
+library(readr)
+library(stringr)
+library(tidyverse)
+B <- 1000
+n <- 400
+RNGversion(vstr = 3.6)
+set.seed(seed = 4172)
+Experiment <- 1:B
+Group <- c(rep.int(x = "Age21-40", times = n/2), rep.int(x = "Age41-60", times = n/2))
+
+sim.dat <- as.data.table(expand.grid(Experiment = Experiment, Group = Group))
+setorderv(x = sim.dat, cols = c("Experiment", "Group"), order = c(1,1))
+sim.dat[Group == "Age21-40", Score := round(x = rnorm(n = .N, mean = 52, sd = 10), digits = 1)]
+sim.dat[Group == "Age41-60", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+dim(sim.dat)
+
+exp.results <- sim.dat[, analyze.experiment(the.dat = .SD), 
+                       keyby = "Experiment"]
+
+DT::datatable(data = round(x = exp.results[1:100, ], digits = 100), 
+              rownames = F)
+
+exp.results[, mean(p < 0.05)]
+exp.results[, summary(effect)]
+exp.results[, summary(upper_ci)]
+exp.results[, summary(lower_ci)]
+exp.results[, mean(p > 0.05)]
+```
+
+### 2 sample T-test for age group(no effect)
+
+```{r}
+n <- 400
+library(data.table)
+library(DT)
+set.seed(seed = 329)
+
+bp.dat <- data.table(Group = c(rep.int(x = "Age21-40", times = n/2), rep.int(x = "Age41-60", times = n/2)))
+
+bp.dat[Group == "Age21-40", Score := round(x = rnorm(n = .N, mean = 52, sd = 10), digits = 1)]
+bp.dat[Group == "Age41-60", Score := round(x = rnorm(n = .N, mean = 52.1, sd = 10), digits = 1)]
+datatable(data = bp.dat)
+t.test(x = bp.dat[Group == "Age21-40", 
+                  Score], y = bp.dat[Group == "Age41-60", Score], mu = 0, alternative = "less")
+
+
+analyze.experiment <- function(the.dat) {
+  require(data.table)
+  setDT(the.dat)
+  
+  the.test <- t.test(x = the.dat[Group == "Age21-40", 
+                                 Score], y = the.dat[Group == "Age41-60", Score], alternative = "less")
+  
+  the.effect <- the.test$estimate[1] - the.test$estimate[2]
+  upper.bound <- the.test$conf.int[2]
+  lower.bound <- the.test$conf.int[1]
+  p <- the.test$p.value
+  
+  result <- data.table(effect = the.effect, upper_ci = upper.bound, lower_ci=lower.bound,
+                       p = p)
+  
+  return(result)
+}
+
+analyze.experiment(the.dat = bp.dat)
+```
+
+# Run the simulation 1000 times
+
+```{r}
+library(dplyr)
+library(readr)
+library(stringr)
+library(tidyverse)
+B <- 1000
+n <- 400
+RNGversion(vstr = 3.6)
+set.seed(seed = 4172)
+Experiment <- 1:B
+Group <- c(rep.int(x = "Age21-40", times = n/2), rep.int(x = "Age41-60", times = n/2))
+
+sim.dat <- as.data.table(expand.grid(Experiment = Experiment, Group = Group))
+setorderv(x = sim.dat, cols = c("Experiment", "Group"), order = c(1,1))
+sim.dat[Group == "Age21-40", Score := round(x = rnorm(n = .N, mean = 52, sd = 10), digits = 1)]
+sim.dat[Group == "Age41-60", Score := round(x = rnorm(n = .N, mean = 52.1, sd = 10), digits = 1)]
+dim(sim.dat)
+
+exp.results <- sim.dat[, analyze.experiment(the.dat = .SD), 
+                       keyby = "Experiment"]
+
+DT::datatable(data = round(x = exp.results[1:100, ], digits = 100), 
+              rownames = F)
+
+exp.results[, mean(p < 0.05)]
+exp.results[, summary(effect)]
+exp.results[, summary(upper_ci)]
+exp.results[, summary(lower_ci)]
+exp.results[, mean(p > 0.05)]
+```
+
+### 2 sample T-test for treatment/control (effect)
+
+```{r}
+n <- 400
+library(data.table)
+library(DT)
+set.seed(seed = 329)
+
+bp.dat <- data.table(Group = c(rep.int(x = "Treatment", times = n/2), rep.int(x = "Control", times = n/2)))
+
+bp.dat[Group == "Control", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+bp.dat[Group == "Treatment", Score := round(x = rnorm(n = .N, mean = 65, sd = 10), digits = 1)]
+datatable(data = bp.dat)
+
+t.test(x = bp.dat[Group == "Treatment", 
+                  Score], y = bp.dat[Group == "Control", Score], mu = 0, alternative = "greater")
+
+analyze.experiment <- function(the.dat) {
+  require(data.table)
+  setDT(the.dat)
+  
+  the.test <- t.test(x = the.dat[Group == "Treatment", 
+                                 Score], y = the.dat[Group == "Control", Score], alternative = "greater")
+  
+  the.effect <- the.test$estimate[1] - the.test$estimate[2]
+  upper.bound <- the.test$conf.int[2]
+  lower.bound <- the.test$conf.int[1]
+  p <- the.test$p.value
+  
+  result <- data.table(effect = the.effect, upper_ci = upper.bound,lower_ci= lower.bound,
+                       p = p)
+  
+  return(result)
+}
+
+analyze.experiment(the.dat = bp.dat)
+```
+
+# Run the simulation 1000 times
+
+```{r}
+library(dplyr)
+library(readr)
+library(stringr)
+library(tidyverse)
+B <- 1000
+n <- 400
+RNGversion(vstr = 3.6)
+set.seed(seed = 4172)
+Experiment <- 1:B
+Group <- c(rep.int(x = "Treatment", times = n/2), rep.int(x = "Control", times = n/2))
+
+sim.dat <- as.data.table(expand.grid(Experiment = Experiment, Group = Group))
+setorderv(x = sim.dat, cols = c("Experiment", "Group"), order = c(1,1))
+sim.dat[Group == "Control", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+sim.dat[Group == "Treatment", Score := round(x = rnorm(n = .N, mean = 65, sd = 10), digits = 1)]
+dim(sim.dat)
+
+exp.results <- sim.dat[, analyze.experiment(the.dat = .SD), 
+                       keyby = "Experiment"]
+
+DT::datatable(data = round(x = exp.results[1:100, ], digits = 20), 
+              rownames = F)
+
+exp.results[, mean(p < 0.05)]
+exp.results[, summary(effect)]
+exp.results[, summary(upper_ci)]
+exp.results[, summary(lower_ci)]
+exp.results[, mean(p > 0.05)]
+```
+
+### 2 sample T-test for treatment/control (no effect)
+
+```{r}
+n <- 400
+library(data.table)
+library(DT)
+set.seed(seed = 329)
+```
+
+##Simulate the data
+
+```{r}
+bp.dat <- data.table(Group = c(rep.int(x = "Treatment", times = n/2), rep.int(x = "Control", times = n/2)))
+
+bp.dat[Group == "Control", Score := round(x = rnorm(n = .N, mean = 60, sd = 10), digits = 1)]
+bp.dat[Group == "Treatment", Score := round(x = rnorm(n = .N, mean = 60.2, sd = 10), digits = 1)]
+datatable(data = bp.dat)
+
+t.test(x = bp.dat[Group == "Treatment", 
+                  Score], y = bp.dat[Group == "Control", Score], mu = 0, alternative = "greater")
+
+analyze.experiment <- function(the.dat) {
+  require(data.table)
+  setDT(the.dat)
+  
+  the.test <- t.test(x = the.dat[Group == "Treatment", 
+                                 Score], y = the.dat[Group == "Control", Score], alternative = "greater")
+  
+  the.effect <- the.test$estimate[1] - the.test$estimate[2]
+  upper.bound <- the.test$conf.int[2]
+  lower.bound <- the.test$conf.int[1]
+  p <- the.test$p.value
+  
+  result <- data.table(effect = the.effect, upper_ci = upper.bound, lower_ci=lower.bound,
+                       p = p)
+  
+  return(result)
+}
+
+analyze.experiment(the.dat = bp.dat)
+```
+
+### Run the simulation 1000 times
+
+```{r}
+library(dplyr)
+library(readr)
+library(stringr)
+library(tidyverse)
+B <- 1000
+n <- 400
+RNGversion(vstr = 3.6)
+set.seed(seed = 4172)
+Experiment <- 1:B
+Group <- c(rep.int(x = "Treatment", times = n/2), rep.int(x = "Control", times = n/2))
+
+```
